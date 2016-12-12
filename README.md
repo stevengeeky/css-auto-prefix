@@ -10,7 +10,7 @@ The goal of this tool is to eliminate the time it takes to prefix all of your CS
 
 ![Demonstration](images/demonstration.gif)
 
-Works both for indented and single-line CSS styles.
+Works both for indented and single-line CSS styles. To activate it, just `Ctrl+Shift+P` into the workbench command window and type "Auto Prefix"
 
 ## Requirements
 
