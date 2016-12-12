@@ -1,8 +1,8 @@
 {
     "name": "css-auto-prefix",
     "displayName": "CSS Auto Prefix",
-    "description": "Autoprefixes certain attributes in CSS",
-    "version": "0.1.2",
+    "description": "auto-prefixes certain attributes in CSS",
+    "version": "0.1.3",
     "publisher": "sporiley",
     "engines": {
         "vscode": "^1.5.0"

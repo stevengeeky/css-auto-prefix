@@ -1,6 +1,6 @@
 # css-auto-prefix
 
-## Beta 0.1.2
+## Beta 0.1.3
 
 This tool, although currently usable to an extent, is by no means completed and still requires a lot of work to be finalized. If this freaks you out, please stick around until a later, more stable version is released. Thanks!
 
@@ -8,7 +8,7 @@ This tool, although currently usable to an extent, is by no means completed and 
 
 The goal of this tool is to eliminate the time it takes to prefix all of your CSS attributes by doing it for you as you type. Keep in mind that it does reformat the CSS attributes which are already inside a block element, but this shouldn't be too noticeable in most cases.
 
-![Demonstration](images/demonstration.gif)
+![Demonstration](https://raw.githubusercontent.com/stevengeeky/css-auto-prefix/master/images/demonstration.gif)
 
 Works both for indented and single-line CSS styles. To activate it, just `Ctrl+Shift+P` into the workbench command window and type "Auto Prefix"
 
