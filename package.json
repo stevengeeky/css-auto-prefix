@@ -1,0 +1,67 @@
+{
+    "name": "css-auto-prefix",
+    "displayName": "CSS Auto Prefix",
+    "description": "Autoprefixes certain attributes in CSS",
+    "version": "0.0.1",
+    "publisher": "stevengeeky",
+    "engines": {
+        "vscode": "^1.5.0"
+    },
+    "categories": [
+        "Other"
+    ],
+    "activationEvents": [
+        "onCommand:extension.autoPrefix"
+    ],
+    "main": "./extension",
+    "contributes": {
+        "commands": [{
+            "command": "extension.autoPrefix",
+            "title": "Auto Prefix"
+        }],
+        "configuration": {
+            "type": "object",
+            "title": "CSS Auto Prefixer Config",
+            "properties": {
+                "css-auto-prefix.prefixes": {
+                    "type": "object",
+                    "default": {
+                        "transform": ["webkit", "moz", "ms", "o"],
+                        "transition": ["webkit", "moz", "ms", "o"],
+                        "border-radius": ["webkit", "moz", "ms", "o"],
+                        "animation": ["webkit"],
+                        "box-reflect": ["webkit"],
+                        "filter": ["webkit"],
+                        "font-feature-settings": ["webkit", "moz"],
+                        "backface-visibility": ["webkit"],
+                        "box-decoration-break": ["webkit"],
+                        "hyphens": ["webkit", "moz", "ms"],
+                        "marquee-direction": ["webkit"],
+                        "marquee-play-count": ["webkit"],
+                        "marquee-speed": ["webkit"],
+                        "marquee-style": ["webkit"],
+                        "text-combine-upright": ["webkit", "moz", "ms"],
+                        "text-decoration-color": ["moz"],
+                        "text-decoration-line": ["moz"],
+                        "text-decoration-style": ["moz"],
+                        "text-orientation": ["webkit"],
+                        "writing-mode": ["webkit", "ms"]
+                    },
+                    "description": "The list of attributes to add support for, and what prefixes each one should receive."
+                }
+            }
+        }
+    },
+    "scripts": {
+        "postinstall": "node ./node_modules/vscode/bin/install",
+        "test": "node ./node_modules/vscode/bin/test"
+    },
+    "devDependencies": {
+        "typescript": "^2.0.3",
+        "vscode": "^1.0.0",
+        "mocha": "^2.3.3",
+        "eslint": "^3.6.0",
+        "@types/node": "^6.0.40",
+        "@types/mocha": "^2.2.32"
+    }
+}
