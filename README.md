@@ -1,6 +1,6 @@
 # css-auto-prefix
 
-## Beta 0.1
+## Beta 0.1.1
 
 This tool, although currently usable to an extent, is by no means completed and still requires a lot of work to be finalized. If this freaks you out, please stick around until a later, more stable version is released. Thanks!
 
