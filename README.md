@@ -1,5 +1,7 @@
 # css-auto-prefix
 
+### For use with _Visual Studio Code_
+
 ## Beta 0.1.3
 
 This tool, although currently usable to an extent, is by no means completed and still requires a lot of work to be finalized. If this freaks you out, please stick around until a later, more stable version is released. Thanks!
