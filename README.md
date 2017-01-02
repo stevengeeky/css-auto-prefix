@@ -28,3 +28,5 @@ No special requirements.
 ### 0.1.0
 
 Release of first beta.
+
+*A JavaScript Project by Steven O'Riley*
