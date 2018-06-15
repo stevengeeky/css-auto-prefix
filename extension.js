@@ -8,25 +8,30 @@ var vscode = require('vscode');
 
 // (default_converter -> webkit, moz, ms, o)
 var tags = {};
+var enabled = true;
 
 function activate(context) {
     var prefixer = Prefixer();
     var config = vscode.workspace.getConfiguration("css-auto-prefix");
     var prefixes = config.get("prefixes");
+    enabled = config.get("enabled");
     
-    if (prefixes)
-        for (var i in prefixes)
-            tags[i] = easy_make(i, prefixes[i]);
-    
-    var disposable = vscode.commands.registerCommand('extension.autoPrefix', function () {
-        //prefixer.update();
+    updatePrefixes();
+    vscode.workspace.onDidChangeConfiguration(() => {
+        tags = {};
+        config = vscode.workspace.getConfiguration("css-auto-prefix");
+        prefixes = config.get("prefixes");
+        enabled = config.get("enabled");
         
-        vscode.window.onDidChangeActiveTextEditor(prefixer.update, this);
-        vscode.window.onDidChangeTextEditorSelection(prefixer.update, this);
-        
+        updatePrefixes();
     });
+    function updatePrefixes() {
+        if (prefixes)
+            for (var i in prefixes)
+                tags[i] = easy_make(i, prefixes[i]);
+    }
 
-    context.subscriptions.push(disposable);
+    vscode.window.onDidChangeTextEditorSelection(prefixer.update, this);
 }
 exports.activate = activate;
 
@@ -41,14 +46,13 @@ function Prefixer() {
     var update = function() {
         if (!item)
             item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-        
         var editor = vscode.window.activeTextEditor;
         var document = editor.document;
         if (document.getText().length == 0)
             return;
         var selection = editor.selection;
         
-        if (document.languageId == "css") {
+        if (enabled && document.languageId == "css") {
             var currline = document.lineAt(editor.selection.start).text;
             var firstpart = currline.substring(0, selection.start.character).replace(/[ \t]+/g, "");
             
