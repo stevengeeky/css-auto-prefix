@@ -2,7 +2,7 @@
 
 ### For use with _Visual Studio Code_
 
-## Beta 0.1.5
+## Beta 0.1.7
 
 This tool, although currently usable to an extent, is by no means completed and still requires a lot of work to be finalized. If this freaks you out, please stick around until a later, more stable version is released. Thanks!
 
@@ -28,5 +28,3 @@ No special requirements.
 ### 0.1.0
 
 Release of first beta.
-
-*A JavaScript Project by Steven O'Riley*
