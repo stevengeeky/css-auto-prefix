@@ -52,7 +52,7 @@ function Prefixer() {
             return;
         var selection = editor.selection;
         
-        if (enabled && document.languageId == "css") {
+        if (enabled && /^(css|scss)$/i.test(document.languageId)) {
             var currline = document.lineAt(editor.selection.start).text;
             var firstpart = currline.substring(0, selection.start.character).replace(/[ \t]+/g, "");
             
