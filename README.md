@@ -2,7 +2,7 @@
 
 ### For use with _Visual Studio Code_
 
-## Beta 0.1.7
+## Beta 0.2.0
 
 This tool, although currently usable to an extent, is by no means completed and still requires a lot of work to be finalized. If this freaks you out, please stick around until a later, more stable version is released. Thanks!
 
@@ -20,10 +20,15 @@ No special requirements.
 
 ## Known Issues
 
-* Not having a semicolon after an assigned attribute value provides no delimiter to distinguish between attributes. Improvisation code is limited, and for now simply places a semicolon where it should be for you.
 * Ambiguous attributes will not be checked, and will not be automatically revised.
 
 ## Release Notes
+
+### 0.2.0
+
+Complete reimplementation for improved stability
+* More intelligent pattern matching requires no semicolons to parse attribute values
+* Attribute modification can take place regardless of css layout (i.e. your code won't get reformatted)
 
 ### 0.1.0
 

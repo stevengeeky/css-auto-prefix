@@ -4,92 +4,98 @@
  * @desc Auto prefixes certain CSS attributes as you type
  */
 
-var vscode = require('vscode');
+let vscode = require('vscode');
 
-// (default_converter -> webkit, moz, ms, o)
-var tags = {};
-var enabled = true;
+let enabled = true;
+let prefixes = {};
+let dontUpdate = false;
 
 function activate(context) {
-    var prefixer = Prefixer();
-    var config = vscode.workspace.getConfiguration("css-auto-prefix");
-    var prefixes = config.get("prefixes");
+    let prefixer = Prefixer();
+    let config = vscode.workspace.getConfiguration("css-auto-prefix");
+    prefixes = config.get("prefixes");
     enabled = config.get("enabled");
     
-    updatePrefixes();
     vscode.workspace.onDidChangeConfiguration(() => {
-        tags = {};
         config = vscode.workspace.getConfiguration("css-auto-prefix");
         prefixes = config.get("prefixes");
         enabled = config.get("enabled");
-        
-        updatePrefixes();
     });
-    function updatePrefixes() {
-        if (prefixes)
-            for (var i in prefixes)
-                tags[i] = easy_make(i, prefixes[i]);
-    }
 
     vscode.window.onDidChangeTextEditorSelection(prefixer.update, this);
 }
 exports.activate = activate;
 
-// this method is called when your extension is deactivated
 function deactivate() {
 }
 
 function Prefixer() {
-    var item;
-    var last = null, current;
-    
-    var update = function() {
-        if (!item)
-            item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-        var editor = vscode.window.activeTextEditor;
-        var document = editor.document;
+    let update = async function() {
+        let editor = vscode.window.activeTextEditor;
+        let document = editor.document;
+        let selection = editor.selection;
+        
         if (document.getText().length == 0)
             return;
-        var selection = editor.selection;
         
-        if (enabled && /^(css|scss)$/i.test(document.languageId)) {
-            var currline = document.lineAt(editor.selection.start).text;
-            var firstpart = currline.substring(0, selection.start.character).replace(/[ \t]+/g, "");
-            
-            if (last == null)
-                last = firstpart.length == 0 ? "" : firstpart[firstpart.length - 1];
-            current = firstpart.length == 0 ? "" : firstpart[firstpart.length - 1];
+        if (!dontUpdate && enabled && /^(css|scss)$/i.test(document.languageId)) {
+            let current_line = document.lineAt(editor.selection.start).text;
             
             if (selection.isEmpty) {
-                // Don't activate if in comments
-                var comment_between = in_between(selection, currline, "/*", "*/");
-                
+                let comment_between = in_between(selection, current_line, "/*", "*/");
                 if (!comment_between.after_start && !comment_between.before_end) {
-                    var range = get_range(editor, selection, document);
-                    
-                    //editor.selection = new vscode.Selection(range.start.anchor, range.end.anchor);
+                    let range = get_range(selection, document);
                     
                     if (range) {
-                        var tokens = tokenize(range.value);
+                        let brackets = new vscode.Selection(range.start.start.line, range.start.start.character, range.end.start.line, range.end.start.character);
+                        let current_token_name = token_at_cursor(selection, document);
+                        let current_token_value = get_token_value(brackets, document, current_token_name) || "";
                         
-                        var curr = token_at_cursor(selection, document, current, last);
-                        var offset_left = curr.end - selection.start.character;
-                        
-                        for (var i in tags) {
-                            if (i == curr.name) {
-                                var revised = tags[i](tokens.names, tokens.values, curr.name, curr.value);
-                                if (!revised.changed)
-                                    break;
-                                var stuff = make_attributes(revised, range.same_line, curr.name, offset_left);
-                                
-                                editor.edit(function(editBuilder) {
-                                    //editBuilder.delete(new vscode.Selection(range.start.start.line, range.start.start.character, range.end.start.line, range.end.start.character));
-                                    editBuilder.replace(new vscode.Selection(range.start.start.line, range.start.start.character, range.end.start.line, range.end.start.character), stuff.value);
-                                }).then(function() {
-                                    if (!editor.selection.isEmpty)
-                                        editor.selection = new vscode.Selection(selection.start.line, selection.start.character, selection.start.line, selection.start.character);
+                        if (prefixes[current_token_name]) {
+                            let modifications = [];
+                            
+                            for (let prefix of prefixes[current_token_name]) {
+                                modifications.push({
+                                    token: '-' + prefix + '-' + current_token_name,
+                                    value: current_token_value
                                 });
-                                break;
+                            }
+                            
+                            dontUpdate = true;
+                            let edits = set_token_values(brackets, document, modifications);
+                            
+                            try {
+                                await editor.edit(function(builder) {
+                                    for (let edit of edits) {
+                                        if (edit.type == 'insert') {
+                                            let start_character = edit.start.character;
+                                            
+                                            if (edit.start.line == range.start.start.line) {
+                                                start_character += range.start.start.character;
+                                            }
+                                            
+                                            builder.replace(new vscode.Selection(edit.start.line, start_character, edit.start.line, start_character), edit.value);
+                                        } else if (edit.type == 'replace') {
+                                            let start_character = edit.start.character;
+                                            let end_character = edit.end.character;
+                                            
+                                            if (edit.start.line == range.start.start.line) {
+                                                start_character += range.start.start.character;
+                                            }
+                                            if (edit.end.line == range.start.start.line) {
+                                                end_character += range.start.start.character;
+                                            }
+                                            
+                                            builder.replace(new vscode.Selection(edit.start.line, start_character, edit.end.line, end_character), edit.value);
+                                        }
+                                    }
+                                }, { undoStopAfter: false, undoStopBefore: false })
+                                .then(function() {
+                                    editor.selection = new vscode.Selection(editor.selection.start, editor.selection.start);
+                                    dontUpdate = false;
+                                });
+                            } catch (ex) {
+                                console.error(ex);
                             }
                         }
                     }    
@@ -97,143 +103,206 @@ function Prefixer() {
                 
                 //editor.selection = new vscode.Selection(range.start.anchor, range.end.anchor);
             }
-            else
-                current = "";
-            
-            last = current;
             
         }
     };
     
     return {
-        update: update
-    };
-}
-
-function make_attributes(list, same_line, char_name, offset_left) {
-    var names = list.names;
-    var values = list.values;
-    var sep = typeof same_line == "boolean" ? " " : "\n" + same_line;
-    var finalsep = same_line == true ? " " : "\n";
-    var incline = sep == "\n" + same_line;
-    var line = 0;
-    var r = "";
-    var newleft = 0;
-    var achieved = false;
-    
-    for (var i = 0; i < names.length; i++) {
-        var add = sep + names[i] + ":" + values[i] + ";";
-        if (!achieved) {
-            line += incline ? 1 : 0;
-            if (names[i] == char_name) {
-                var line_value = add.replace(/\n/g, "");
-                newleft = line_value.length - 1 - offset_left;
-                achieved = true;
-            }
+        update: function() {
+            update();
         }
-        r += add;
-    }
-    return {
-        value: r + finalsep,
-        left: newleft,
-        top: line
     };
 }
 
-function token_at_cursor(selection, document, curr_last_node, last_last_node) {
-    var s = document.lineAt(selection.start).text;
-    var before = s.substring(0, selection.start.character);
-    var after = s.substring(selection.start.character);
+function range_greater_than(a, b) {
+    if (a.line > b.line) return true;
+    if (a.line < b.line) return false;
     
-    var ind = Math.max(-1, Math.max(before.lastIndexOf(";"), Math.max(before.lastIndexOf("}"), before.lastIndexOf("{"))));
-    var aind = after.length;
-    aind = _min(after, aind, ";");
-    aind = _min(after, aind, "{");
-    aind = _min(after, aind, "}");
-    aind = _min(after, aind, /[a-zA-Z\-_][a-zA-Z0-9\-_]*:/g);
-    
-    aind += selection.start.character;
-    
-    s = s.substring(ind + 1, aind);
-    
-    var name, value;
-    if (s.indexOf(":") == -1) {
-        name = s;
-        value = "";
-    }
-    else {
-        var tind = s.indexOf(":");
-        name = replace_whitespace(s.substring(0, tind));
-        value = s.substring(tind + 1);
-    }
-    
-    if (curr_last_node == ":" && last_last_node != ":")
-        value = "";
-    
-    return {
-        name: name,
-        value: value,
-        begin: ind,
-        end: aind
-    };
+    return a.character > b.character;
 }
 
-function _min(v, a, b) {
-    if (b instanceof RegExp) {
-        var mat = v.match(b);
-        if (typeof mat != "undefined" && mat != null)
-            return Math.min(a, v.indexOf(mat[0]));
+function lines_between_selection(selection, document) {
+    let start = selection.start;
+    let end = selection.end;
+    
+    if (range_greater_than(start, end)) {
+        start = selection.end;
+        end = selection.start;
     }
-    else if (v.indexOf(b) != -1)
-        return Math.min(a, v.indexOf(b));
-    return a;
+    
+    if (start.line == end.line) {
+        return [{
+            line: start.line,
+            text: document
+                .lineAt(start.line).text
+                .substring(start.character, end.character)
+        }];
+    }
+    
+    let line, result = [];
+    for (let l = start.line; l <= end.line; l++) {
+        line = document.lineAt(l).text;
+        if (l == start.line) line = line.substring(start.character);
+        else if (l == end.line) line = line.substring(0, end.character);
+        
+        result.push({
+            line: l,
+            text: line
+        });
+    }
+    
+    return result;
 }
 
-function tokenize(s) {
-    s = s.replace(/\".*?\"|\'.*?\'|[\n]+/g, function(m) {
-        if (m.replace(/[\n]+/g, "") == "")
-            return "";
-        return m;
-    });
-    var sp = s.split(";");
-    var names = [], values = [];
+function value_between_selection(selection, document) {
+    let start = selection.start;
+    let end = selection.end;
     
-    for (var i = 0; i < sp.length; i++) {
-        var t = sp[i];
-        if (t.replace(/[ \t]+/g, "") == "")
-            continue;
-        var ind = t.indexOf(":");
-        if (ind == -1) {
-            names.push(t);
-            values.push("");
-        }
-        else {
-            if (ind != t.lastIndexOf(":")) {
-                var mat = t.match(/[ \t]*([a-zA-Z\-_][a-zA-Z\-_0-9]*)?.*?:/g);
-                if (typeof mat != "undefined" && mat != null && mat.length > 1) {
-                    var second = mat[1];
-                    var sind = (t.substring(mat[0].length).indexOf(second) + mat[0].length);
-                    var f = t.substring(0, sind);
-                    names.push(replace_whitespace(f.substring(0, ind)));
-                    values.push(f.substring(ind + 1));
-                    sp[i] = t.substring(sind);
-                    --i;
+    if (range_greater_than(start, end)) {
+        start = selection.end;
+        end = selection.start;
+    }
+    
+    if (start.line == end.line) {
+        return document
+                .lineAt(start.line).text
+                .substring(start.character, end.character);
+    }
+    
+    let line, lines = [];
+    for (let l = start.line; l <= end.line; l++) {
+        line = document.lineAt(l).text;
+        if (l == start.line) line = line.substring(start.character);
+        else if (l == end.line) line = line.substring(0, end.character);
+        
+        lines.push(line);
+    }
+    
+    return lines.join("\n");
+}
+
+function get_token_value(selection, document, token) {
+    let selection_text = value_between_selection(selection, document);
+    let token_matcher = new RegExp('(^|\\{|\\}|[ \\r\\t\\n]+|;)' + escape_regex(token) + '[ \\t\\r]*:', 'g');
+    if (!token_matcher.test(selection_text)) return null;
+    
+    let token_text = selection_text.match(token_matcher)[0];
+    let text_from_token = selection_text.substring(selection_text.indexOf(token_text));
+    let text_from_colon = text_from_token.substring(text_from_token.indexOf(":") + 1);
+    
+    let value_at_end = (text_from_colon.match(/[\w\-]+\W*\:|;|[\n\r]/g) || [])[0];
+    let index_end_of_value = text_from_token.length;
+    if (value_at_end) index_end_of_value = text_from_token.indexOf(":")
+                                            + 1 + text_from_colon.indexOf(value_at_end);
+    
+    let value = text_from_token.substring(text_from_token.indexOf(":") + 1, index_end_of_value);
+    
+    return value;
+}
+
+function set_token_values(selection, document, pairs) {
+    let lines = lines_between_selection(selection, document);
+    let result = [];
+    
+    for (let i = 0; i < pairs.length; i++) {
+        for (let l = 0; l < lines.length; l++) {
+            let line = lines[l];
+            let pair = pairs[i];
+            let current_value = get_token_value(selection, document, pair.token);
+            let token_matcher = new RegExp('(^|[ \\r\\t\\n]+|;|\\{|\\})' + escape_regex(pair.token) + '[ \\t\\r]*:', 'g');
+            
+            if (line.text.match(token_matcher) && typeof current_value == 'string') {
+                let token_text = line.text.match(token_matcher)[0];
+                let text_from_token = line.text.substring(line.text.indexOf(token_text));
+                let value_index = line.text.indexOf(token_text) + text_from_token.indexOf(":") + 1;
+                
+                result.push({
+                    type: 'replace',
+                    start: {
+                        line: line.line,
+                        character: value_index,
+                    },
+                    end: {
+                        line: line.line,
+                        character: value_index + current_value.length,
+                    },
+                    value: pair.value
+                });
+                
+                break;
+            } else {
+                if (l == lines.length - 1) {
+                    // for now, just take immediate whitespace as indentation
+                    // could have a smarter algorithm but worried about it being expensive
+                    // i.e. having a linear computational runtime
+                    let approx_whitespace = (line.text.match(/[ \t]*/g) || [])
+                                            .filter(x => x.length > 0).reverse()[0] || "\t";
+                    
+                    let newline = approx_whitespace
+                                + pair.token + ":"
+                                + pair.value + ";";
+                    
+                    // should we break a line before appending the new attribute?
+                    // for now break if \n at end
+                    if (line.text.trim().length == 0) {
+                        result.push({
+                            type: 'insert',
+                            start: {
+                                line: line.line,
+                                character: line.text.length,
+                            },
+                            value: newline + '\n'
+                        });
+                    } else {
+                        result.push({
+                            type: 'insert',
+                            start: {
+                                line: line.line,
+                                character: line.text.length,
+                            },
+                            value: newline + " "
+                        });
+                    }
+                    
+                    break;
+                } else {
                     continue;
                 }
             }
-            else {
-                names.push(replace_whitespace(t.substring(0, ind)));
-                values.push(t.substring(ind + 1));
-            }
         }
     }
-    return {
-        names: names,
-        values: values
-    };
+    
+    return result;
 }
 
-function get_range(editor, selection, document) {
+function token_at_cursor(selection, document) {
+    let current_line = document.lineAt(selection.start).text;
+    let colon_index = current_line
+                        .substring(0, selection.start.character)
+                        .lastIndexOf(":");
+    if (colon_index == -1) return null;
+    
+    let token_beginning = colon_index;
+    let reached_non_whitespace = false;
+    for (let i = colon_index; i > 0; i--) {
+        if (/[;{}]/.test(current_line.charAt(i - 1))) {
+            break;
+        } else if (/[ \t\r]/.test(current_line.charAt(i - 1))) {
+            if (reached_non_whitespace) break;
+        } else {
+            reached_non_whitespace = true;
+        }
+        token_beginning = i - 1;
+    }
+    
+    return current_line.substring(token_beginning, colon_index);
+}
+
+function escape_regex(text) {
+    return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+}
+
+function get_range(selection, document) {
     var pos = selection;
     var raw = "", newStuff = "";
     var fline = document.lineAt(pos.start);
@@ -323,38 +392,6 @@ function make_range(value, start, end, same_line) {
     };
 }
 
-function easy_make(name, prefixes) {
-    return make_default_converter(name, prefixes.indexOf("webkit") != -1 ? 1 : 0, prefixes.indexOf("moz") != -1 ? 1 : 0, prefixes.indexOf("ms") != -1 ? 1 : 0, prefixes.indexOf("o") != -1 ? 1 : 0);
-}
-
-function make_default_converter(type, webkit, moz, ms, o) {
-    var list = [webkit, moz, ms, o];
-    var inames = ["-webkit-", "-moz-", "-ms-", "-o-"];
-    var revised_list = [];
-    for (var i = 0; i < list.length; i++)
-        if (list[i] != 0)
-            revised_list.push(inames[i] + type);
-    
-    return function(names, values, actual_name, actual_value) {
-        var changed = false;
-        for (var i = 0; i < revised_list.length; i++) {
-            if (names.indexOf(revised_list[i]) == -1) {
-                names.push(revised_list[i]);
-                values.push(actual_value);
-                changed = true;
-            }
-            else {
-                if (values[names.indexOf(revised_list[i])] != actual_value) {
-                    values[names.indexOf(revised_list[i])] = actual_value;
-                    changed = true;
-                }
-            }
-        }
-        
-        return { names: names, values: values, changed: changed };
-    };
-}
-
 function in_between(position, line, a, b) {
     var beginning = line.substring(0, position.start.character);
     var end = line.substring(position.start.character);
@@ -374,14 +411,6 @@ function in_between(position, line, a, b) {
         start: start,
         end: end
     };
-}
-
-function replace_whitespace(s) {
-    return s.replace(/\".*?\"|\'.*?\'|[ \t\n;]+/g, function(m) {
-        if (m.replace(/[ \t\n;]+/g, "") == "")
-            return "";
-        return m;
-    });
 }
 
 exports.deactivate = deactivate;
