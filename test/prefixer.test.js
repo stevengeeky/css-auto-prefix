@@ -432,3 +432,44 @@ describe('#5 one undo step, and an undo is respected', () => {
             '.a {\n  -webkit-user-select: none;\n  user-select: none;\n}\n.b {\n  -webkit-mask: x;\n  mask: x;\n}');
     });
 });
+
+describe('prefix tables and configuration', () => {
+    const pkg = require('../package.json');
+    const props = pkg.contributes.configuration.properties;
+
+    test('the default table is the modern set and contains no long-dead entries', () => {
+        for (const p of ['user-select', 'appearance', 'backdrop-filter', 'mask', 'clip-path', 'text-size-adjust']) {
+            assert.ok(P.MODERN_PREFIXES[p], p + ' should be in the modern set');
+        }
+        for (const p of ['transform', 'transition', 'border-radius', 'box-reflect', 'marquee-style', 'animation']) {
+            assert.equal(P.MODERN_PREFIXES[p], undefined, p + ' should not be in the modern set');
+        }
+        assert.deepEqual(P.prefixAt('.a {\n  transform: none|;\n}'.replace('|', ''), 20), []);
+    });
+
+    test('package.json defaults mirror the lib tables', () => {
+        assert.deepEqual(props['css-auto-prefix.prefixes'].default, P.MODERN_PREFIXES);
+        assert.deepEqual(props['css-auto-prefix.legacyPrefixes'].default, P.LEGACY_PREFIXES);
+        assert.equal(props['css-auto-prefix.prefixPosition'].default, 'before');
+        assert.equal(props['css-auto-prefix.includeLegacy'].default, false);
+        assert.equal(pkg.version, '0.3.0');
+        assert.deepEqual(pkg.contributes.commands.map(c => c.command), ['css-auto-prefix.prefixFile', 'css-auto-prefix.prefixSelection']);
+    });
+
+    test('resolvePrefixes: legacy is opt-in and the user table wins over it', () => {
+        assert.deepEqual(P.resolvePrefixes({}), P.MODERN_PREFIXES);
+        assert.equal(P.resolvePrefixes({ prefixes: P.MODERN_PREFIXES })['transform'], undefined);
+        const merged = P.resolvePrefixes({ prefixes: { transform: ['webkit'] }, includeLegacy: true });
+        assert.deepEqual(merged['transform'], ['webkit']);
+        assert.deepEqual(merged['border-radius'], P.LEGACY_PREFIXES['border-radius']);
+        assert.equal(merged['user-select'], undefined, 'a custom table replaces the modern set, as in 0.2.0');
+    });
+
+    test('a prefixed property under the cursor is never prefixed again', () => {
+        assert.deepEqual(atCursor('.a {\n  -webkit-user-select: none|;\n}').edits, []);
+    });
+
+    test('cursor before the colon does nothing', () => {
+        assert.deepEqual(atCursor('.a {\n  user-|select: none;\n}').edits, []);
+    });
+});

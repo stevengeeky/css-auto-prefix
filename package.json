@@ -1,11 +1,11 @@
 {
     "name": "css-auto-prefix",
     "displayName": "css-auto-prefix",
-    "description": "Autoprefixes certain attributes in CSS",
-    "version": "0.2.0",
+    "description": "Adds vendor prefixes (-webkit-, -moz-, -ms-, -o-) to CSS/SCSS/LESS properties as you type, or on demand",
+    "version": "0.3.0",
     "publisher": "sporiley",
     "engines": {
-        "vscode": "^1.24.0"
+        "vscode": "^1.75.0"
     },
     "categories": [
         "Other"
@@ -29,88 +29,7 @@
                 "css-auto-prefix.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Whether or not auto prefix css files"
-                },
-                "css-auto-prefix.prefixes": {
-                    "type": "object",
-                    "default": {
-                        "transform": [
-                            "webkit",
-                            "moz",
-                            "ms",
-                            "o"
-                        ],
-                        "transition": [
-                            "webkit",
-                            "moz",
-                            "ms",
-                            "o"
-                        ],
-                        "border-radius": [
-                            "webkit",
-                            "moz",
-                            "ms",
-                            "o"
-                        ],
-                        "animation": [
-                            "webkit"
-                        ],
-                        "box-reflect": [
-                            "webkit"
-                        ],
-                        "filter": [
-                            "webkit"
-                        ],
-                        "font-feature-settings": [
-                            "webkit",
-                            "moz"
-                        ],
-                        "backface-visibility": [
-                            "webkit"
-                        ],
-                        "box-decoration-break": [
-                            "webkit"
-                        ],
-                        "hyphens": [
-                            "webkit",
-                            "moz",
-                            "ms"
-                        ],
-                        "marquee-direction": [
-                            "webkit"
-                        ],
-                        "marquee-play-count": [
-                            "webkit"
-                        ],
-                        "marquee-speed": [
-                            "webkit"
-                        ],
-                        "marquee-style": [
-                            "webkit"
-                        ],
-                        "text-combine-upright": [
-                            "webkit",
-                            "moz",
-                            "ms"
-                        ],
-                        "text-decoration-color": [
-                            "moz"
-                        ],
-                        "text-decoration-line": [
-                            "moz"
-                        ],
-                        "text-decoration-style": [
-                            "moz"
-                        ],
-                        "text-orientation": [
-                            "webkit"
-                        ],
-                        "writing-mode": [
-                            "webkit",
-                            "ms"
-                        ]
-                    },
-                    "description": "The list of attributes to add support for, and what prefixes each one should receive."
+                    "description": "Add vendor prefixes automatically as you type (the commands work regardless)."
                 },
                 "css-auto-prefix.prefixPosition": {
                     "type": "string",
@@ -124,6 +43,266 @@
                         "Prefixed lines go below the standard property (the 0.2.0 layout)."
                     ],
                     "description": "Where to put the vendor-prefixed copies relative to the standard property."
+                },
+                "css-auto-prefix.prefixes": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "webkit",
+                                "moz",
+                                "ms",
+                                "o"
+                            ]
+                        }
+                    },
+                    "default": {
+                        "appearance": [
+                            "webkit",
+                            "moz"
+                        ],
+                        "backdrop-filter": [
+                            "webkit"
+                        ],
+                        "background-clip": [
+                            "webkit"
+                        ],
+                        "box-decoration-break": [
+                            "webkit"
+                        ],
+                        "clip-path": [
+                            "webkit"
+                        ],
+                        "hyphens": [
+                            "webkit"
+                        ],
+                        "initial-letter": [
+                            "webkit"
+                        ],
+                        "line-clamp": [
+                            "webkit"
+                        ],
+                        "mask": [
+                            "webkit"
+                        ],
+                        "mask-clip": [
+                            "webkit"
+                        ],
+                        "mask-image": [
+                            "webkit"
+                        ],
+                        "mask-origin": [
+                            "webkit"
+                        ],
+                        "mask-position": [
+                            "webkit"
+                        ],
+                        "mask-repeat": [
+                            "webkit"
+                        ],
+                        "mask-size": [
+                            "webkit"
+                        ],
+                        "print-color-adjust": [
+                            "webkit"
+                        ],
+                        "text-size-adjust": [
+                            "webkit"
+                        ],
+                        "user-select": [
+                            "webkit"
+                        ]
+                    },
+                    "description": "Properties that still need vendor prefixes, and which prefixes each one gets. Only these are prefixed (plus the legacy table when css-auto-prefix.includeLegacy is on)."
+                },
+                "css-auto-prefix.includeLegacy": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Also prefix the long-unprefixed properties from css-auto-prefix.legacyPrefixes (transform, transition, border-radius, ...), as version 0.2.0 did."
+                },
+                "css-auto-prefix.legacyPrefixes": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "webkit",
+                                "moz",
+                                "ms",
+                                "o"
+                            ]
+                        }
+                    },
+                    "default": {
+                        "animation": [
+                            "webkit"
+                        ],
+                        "animation-delay": [
+                            "webkit"
+                        ],
+                        "animation-direction": [
+                            "webkit"
+                        ],
+                        "animation-duration": [
+                            "webkit"
+                        ],
+                        "animation-fill-mode": [
+                            "webkit"
+                        ],
+                        "animation-iteration-count": [
+                            "webkit"
+                        ],
+                        "animation-name": [
+                            "webkit"
+                        ],
+                        "animation-play-state": [
+                            "webkit"
+                        ],
+                        "animation-timing-function": [
+                            "webkit"
+                        ],
+                        "backface-visibility": [
+                            "webkit"
+                        ],
+                        "border-radius": [
+                            "webkit",
+                            "moz",
+                            "ms",
+                            "o"
+                        ],
+                        "box-reflect": [
+                            "webkit"
+                        ],
+                        "box-shadow": [
+                            "webkit",
+                            "moz"
+                        ],
+                        "box-sizing": [
+                            "webkit",
+                            "moz"
+                        ],
+                        "column-count": [
+                            "webkit",
+                            "moz"
+                        ],
+                        "column-gap": [
+                            "webkit",
+                            "moz"
+                        ],
+                        "column-rule": [
+                            "webkit",
+                            "moz"
+                        ],
+                        "column-width": [
+                            "webkit",
+                            "moz"
+                        ],
+                        "columns": [
+                            "webkit",
+                            "moz"
+                        ],
+                        "filter": [
+                            "webkit"
+                        ],
+                        "font-feature-settings": [
+                            "webkit",
+                            "moz"
+                        ],
+                        "marquee-direction": [
+                            "webkit"
+                        ],
+                        "marquee-play-count": [
+                            "webkit"
+                        ],
+                        "marquee-speed": [
+                            "webkit"
+                        ],
+                        "marquee-style": [
+                            "webkit"
+                        ],
+                        "perspective": [
+                            "webkit",
+                            "moz"
+                        ],
+                        "perspective-origin": [
+                            "webkit",
+                            "moz"
+                        ],
+                        "tab-size": [
+                            "moz",
+                            "o"
+                        ],
+                        "text-combine-upright": [
+                            "webkit",
+                            "moz",
+                            "ms"
+                        ],
+                        "text-decoration-color": [
+                            "webkit",
+                            "moz"
+                        ],
+                        "text-decoration-line": [
+                            "webkit",
+                            "moz"
+                        ],
+                        "text-decoration-style": [
+                            "webkit",
+                            "moz"
+                        ],
+                        "text-orientation": [
+                            "webkit"
+                        ],
+                        "transform": [
+                            "webkit",
+                            "moz",
+                            "ms",
+                            "o"
+                        ],
+                        "transform-origin": [
+                            "webkit",
+                            "moz",
+                            "ms",
+                            "o"
+                        ],
+                        "transform-style": [
+                            "webkit",
+                            "moz"
+                        ],
+                        "transition": [
+                            "webkit",
+                            "moz",
+                            "ms",
+                            "o"
+                        ],
+                        "transition-delay": [
+                            "webkit",
+                            "moz",
+                            "o"
+                        ],
+                        "transition-duration": [
+                            "webkit",
+                            "moz",
+                            "o"
+                        ],
+                        "transition-property": [
+                            "webkit",
+                            "moz",
+                            "o"
+                        ],
+                        "transition-timing-function": [
+                            "webkit",
+                            "moz",
+                            "o"
+                        ],
+                        "writing-mode": [
+                            "webkit",
+                            "ms"
+                        ]
+                    },
+                    "description": "The legacy prefix table used when css-auto-prefix.includeLegacy is on."
                 }
             }
         },
@@ -146,5 +325,12 @@
     "devDependencies": {
         "@types/vscode": "^1.75.0",
         "@types/node": "^22.0.0"
-    }
+    },
+    "keywords": [
+        "css",
+        "scss",
+        "less",
+        "vendor prefix",
+        "autoprefixer"
+    ]
 }
