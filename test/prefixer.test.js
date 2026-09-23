@@ -326,3 +326,109 @@ describe('#4 prefixing code that already exists', () => {
         assert.deepEqual(edits.map(e => e.decl), [{ name: 'user-select', value: 'none' }]);
     });
 });
+
+describe('#5 one undo step, and an undo is respected', () => {
+    /** Simulate typing `typed` at `offset` of `before`; returns the post text and the VS Code-shaped change. */
+    function type(before, offset, typed) {
+        return {
+            text: before.slice(0, offset) + typed + before.slice(offset),
+            changes: [{ rangeOffset: offset, rangeLength: 0, text: typed }]
+        };
+    }
+
+    test('typing `;` finishes the declaration: one insertion edit for all prefixes', () => {
+        const before = '.a {\n  transform: rotate(1deg)\n}';
+        const { text, changes } = type(before, before.indexOf(')') + 1, ';');
+        const edits = P.editsForChanges(text, changes, LEGACY);
+        assert.equal(edits.length, 1);
+        assert.equal(P.applyEdits(text, edits),
+            '.a {\n  -webkit-transform: rotate(1deg);\n  -moz-transform: rotate(1deg);\n  -ms-transform: rotate(1deg);\n  -o-transform: rotate(1deg);\n  transform: rotate(1deg);\n}');
+    });
+
+    test('a letter typed mid-value does not trigger (no churn on the undo stack)', () => {
+        const before = '.a {\n  transform: rotate(1de)\n}';
+        const { text, changes } = type(before, before.indexOf('de') + 2, 'g');
+        assert.deepEqual(P.editsForChanges(text, changes, LEGACY), []);
+    });
+
+    test('Enter after a semicolon-less value triggers', () => {
+        const before = '.a {\n  user-select: none\n}';
+        const { text, changes } = type(before, before.indexOf('none') + 4, '\n  ');
+        assert.equal(P.applyEdits(text, P.editsForChanges(text, changes)),
+            '.a {\n  -webkit-user-select: none;\n  user-select: none\n  \n}');
+    });
+
+    test('closing the block with `}` finishes the last semicolon-less declaration', () => {
+        const before = '.a {\n  color: red;\n  user-select: none\n';
+        const { text, changes } = type(before, before.length, '}');
+        assert.equal(P.applyEdits(text, P.editsForChanges(text, changes)),
+            '.a {\n  color: red;\n  -webkit-user-select: none;\n  user-select: none\n}');
+    });
+
+    test('closing a nested scss block only finishes that block', () => {
+        const before = '.a {\n  user-select: none\n  .b {\n    mask: url(x)\n  ';
+        const { text, changes } = type(before, before.length, '}');
+        assert.equal(P.applyEdits(text, P.editsForChanges(text, changes, { syntax: 'scss' })),
+            '.a {\n  user-select: none\n  .b {\n    -webkit-mask: url(x);\n    mask: url(x)\n  }');
+    });
+
+    test('our own inserted text arriving as a change produces nothing (idempotent)', () => {
+        const src = '.a {\n  user-select: none;\n}';
+        const edits = P.editsForChanges(src, [{ rangeOffset: src.indexOf(';'), rangeLength: 0, text: ';' }]);
+        const after = P.applyEdits(src, edits);
+        const ours = edits[0];
+        assert.deepEqual(P.editsForChanges(after, [{ rangeOffset: ours.start, rangeLength: 0, text: ours.text }]), []);
+    });
+
+    test('undo of our edit is recognised and the declaration is not prefixed again', () => {
+        const before = '.a {\n  user-select: none\n}';
+        const t1 = type(before, before.indexOf('none') + 4, ';');
+        const edits = P.editsForChanges(t1.text, t1.changes);
+        const applied = P.postOffsets(edits);
+        const after = P.applyEdits(t1.text, edits);
+        assert.equal(after, '.a {\n  -webkit-user-select: none;\n  user-select: none;\n}');
+
+        // Ctrl+Z: VS Code reports the removal of exactly what we inserted
+        const undoChanges = [{ rangeOffset: applied[0].postStart, rangeLength: applied[0].text.length, text: '' }];
+        assert.equal(P.applyEdits(after, [{ start: undoChanges[0].rangeOffset, end: undoChanges[0].rangeOffset + undoChanges[0].rangeLength, text: '' }]), t1.text);
+        const keys = P.undoneKeys(applied, undoChanges);
+        assert.deepEqual([...keys], ['user-select:none']);
+
+        // the user keeps typing: Enter right after the semicolon must not bring the prefixes back
+        const t2 = type(t1.text, t1.text.indexOf(';') + 1, '\n  ');
+        assert.equal(P.withoutUndone(P.editsForChanges(t2.text, t2.changes), keys).length, 0);
+
+        // ...until the value changes
+        const t3 = { text: t2.text.replace('none;', 'text;'), changes: [{ rangeOffset: t2.text.indexOf(';'), rangeLength: 0, text: ';' }] };
+        assert.equal(P.withoutUndone(P.editsForChanges(t3.text, t3.changes), keys).length, 1);
+    });
+
+    test('postOffsets shifts later edits by earlier insertions', () => {
+        const src = '.a { user-select: none; }\n.b { mask: x; }';
+        const applied = P.postOffsets(P.prefixAll(src));
+        assert.equal(applied.length, 2);
+        assert.equal(applied[0].postStart, applied[0].start);
+        assert.equal(applied[1].postStart, applied[1].start + applied[0].text.length);
+        const after = P.applyEdits(src, applied);
+        assert.equal(after.slice(applied[1].postStart, applied[1].postStart + applied[1].text.length), applied[1].text);
+    });
+
+    test('an unrelated undo does not mark anything', () => {
+        const applied = P.postOffsets(P.prefixAll('.a { user-select: none; }'));
+        assert.equal(P.undoneKeys(applied, [{ rangeOffset: 0, rangeLength: 1, text: '' }]).size, 0);
+        assert.equal(P.undoneKeys(undefined, [{ rangeOffset: 0, rangeLength: 1, text: '' }]).size, 0);
+    });
+
+    test('multi-cursor changes (bottom-up, pre-change offsets) map to the right declarations', () => {
+        const before = '.a {\n  user-select: none\n}\n.b {\n  mask: x\n}';
+        const o1 = before.indexOf('none') + 4;
+        const o2 = before.indexOf('x\n') + 1;
+        const text = before.slice(0, o1) + ';' + before.slice(o1, o2) + ';' + before.slice(o2);
+        const changes = [
+            { rangeOffset: o2, rangeLength: 0, text: ';' },
+            { rangeOffset: o1, rangeLength: 0, text: ';' }
+        ];
+        assert.equal(P.applyEdits(text, P.editsForChanges(text, changes)),
+            '.a {\n  -webkit-user-select: none;\n  user-select: none;\n}\n.b {\n  -webkit-mask: x;\n  mask: x;\n}');
+    });
+});
