@@ -135,3 +135,111 @@ describe('#2 SCSS: typing above a nested & selector', () => {
         assert.equal(out, '.a {\n  .b {\n    -webkit-user-select: none;\n    user-select: none\n');
     });
 });
+
+describe('#3 no padding before the semicolon, indentation copied from the property line', () => {
+    test('the issue snippet: value padded with spaces before `;` comes out trimmed', () => {
+        const src = '.a {\n        border-radius: 2px       |;\n}';
+        const { out } = atCursor(src, LEGACY);
+        assert.equal(out, [
+            '.a {',
+            '        -webkit-border-radius: 2px;',
+            '        -moz-border-radius: 2px;',
+            '        -ms-border-radius: 2px;',
+            '        -o-border-radius: 2px;',
+            '        border-radius: 2px       ;',
+            '}'
+        ].join('\n'));
+    });
+
+    test('exactly one space after the colon, none before the semicolon, tabs kept', () => {
+        const src = '.a {\n\tuser-select:none|;\n}';
+        const { out } = atCursor(src);
+        assert.equal(out, '.a {\n\t-webkit-user-select: none;\n\tuser-select:none;\n}');
+    });
+
+    test('indentation is the property line\'s own, not the last whitespace run', () => {
+        const src = '.a {\n    user-select:     none    |\n}';
+        const { out } = atCursor(src);
+        assert.equal(out, '.a {\n    -webkit-user-select: none;\n    user-select:     none    \n}');
+    });
+
+    test('a single-line block gets inline prefixes separated by one space', () => {
+        const { out } = atCursor('a { color: red; user-select: none|; }');
+        assert.equal(out, 'a { color: red; -webkit-user-select: none; user-select: none; }');
+    });
+
+    test('CRLF files get CRLF prefix lines', () => {
+        const { out } = atCursor('.a {\r\n  user-select: none|;\r\n}');
+        assert.equal(out, '.a {\r\n  -webkit-user-select: none;\r\n  user-select: none;\r\n}');
+    });
+
+    test('an existing prefixed line with a stale value is updated in place, not duplicated', () => {
+        const src = '.a {\n  -webkit-user-select: text;\n  user-select: none|;\n}';
+        const { out } = atCursor(src);
+        assert.equal(out, '.a {\n  -webkit-user-select: none;\n  user-select: none;\n}');
+    });
+
+    test('an existing prefixed line with an empty value gets exactly one space', () => {
+        assert.equal(atCursor('.a {\n  -webkit-user-select:;\n  user-select: none|;\n}').out,
+            '.a {\n  -webkit-user-select: none;\n  user-select: none;\n}');
+        assert.equal(atCursor('.a {\n  -webkit-user-select: ;\n  user-select: none|;\n}').out,
+            '.a {\n  -webkit-user-select: none;\n  user-select: none;\n}');
+    });
+
+    test('a multi-line comma-continued value is taken whole', () => {
+        const src = '.a {\n  transition: color .2s,\n    background .3s|;\n}';
+        const { out } = atCursor(src, { prefixes: { transition: ['webkit'] } });
+        assert.equal(out, '.a {\n  -webkit-transition: color .2s,\n    background .3s;\n  transition: color .2s,\n    background .3s;\n}');
+    });
+});
+
+describe('#6 the W3C property comes last', () => {
+    const issue = '#my-element {\n\ttransition: margin 0.3s|;\n}';
+
+    test('the exact snippet from the issue produces the expected block', () => {
+        const { out } = atCursor(issue, LEGACY);
+        assert.equal(out, [
+            '#my-element {',
+            '\t-webkit-transition: margin 0.3s;',
+            '\t-moz-transition: margin 0.3s;',
+            '\t-ms-transition: margin 0.3s;',
+            '\t-o-transition: margin 0.3s;',
+            '\ttransition: margin 0.3s;',
+            '}'
+        ].join('\n'));
+    });
+
+    test('prefixPosition: "after" restores the 0.2.0 layout', () => {
+        const { out } = atCursor(issue, Object.assign({ prefixPosition: 'after' }, LEGACY));
+        assert.equal(out, [
+            '#my-element {',
+            '\ttransition: margin 0.3s;',
+            '\t-webkit-transition: margin 0.3s;',
+            '\t-moz-transition: margin 0.3s;',
+            '\t-ms-transition: margin 0.3s;',
+            '\t-o-transition: margin 0.3s;',
+            '}'
+        ].join('\n'));
+    });
+
+    test('"after" on a half-typed line leaves the standard line unterminated, as before', () => {
+        const { out } = atCursor('.a {\n  user-select: none|\n}', { prefixPosition: 'after' });
+        assert.equal(out, '.a {\n  user-select: none\n  -webkit-user-select: none;\n}');
+    });
+
+    test('"after" inline with a semicolon', () => {
+        const { out } = atCursor('a { user-select: none|; }', { prefixPosition: 'after' });
+        assert.equal(out, 'a { user-select: none; -webkit-user-select: none; }');
+    });
+
+    test('"after" inline without a semicolon falls back to before so the block stays valid', () => {
+        const { out } = atCursor('a { user-select: none| }', { prefixPosition: 'after' });
+        assert.equal(out, 'a { -webkit-user-select: none; user-select: none }');
+    });
+
+    test('only the missing prefixes are inserted, in table order', () => {
+        const src = '.a {\n  -moz-appearance: none;\n  appearance: none|;\n}';
+        const { out } = atCursor(src);
+        assert.equal(out, '.a {\n  -moz-appearance: none;\n  -webkit-appearance: none;\n  appearance: none;\n}');
+    });
+});
