@@ -243,3 +243,86 @@ describe('#6 the W3C property comes last', () => {
         assert.equal(out, '.a {\n  -moz-appearance: none;\n  -webkit-appearance: none;\n  appearance: none;\n}');
     });
 });
+
+describe('#4 prefixing code that already exists', () => {
+    const file = [
+        '/* header: { user-select: x; } */',
+        '.a {',
+        '  user-select: none;',
+        '  color: red;',
+        '}',
+        '',
+        '.b { appearance: none; }',
+        '',
+        '.c {',
+        '  -webkit-mask: url(old.svg);',
+        '  mask: url(new.svg);',
+        '  .d { clip-path: circle(50%); }',
+        '  content: "user-select: x;";',
+        '}',
+        ''
+    ].join('\n');
+
+    test('prefixAll walks every block, updates stale prefixes and adds missing ones once', () => {
+        const out = P.applyEdits(file, P.prefixAll(file, { syntax: 'scss' }));
+        assert.equal(out, [
+            '/* header: { user-select: x; } */',
+            '.a {',
+            '  -webkit-user-select: none;',
+            '  user-select: none;',
+            '  color: red;',
+            '}',
+            '',
+            '.b { -webkit-appearance: none; -moz-appearance: none; appearance: none; }',
+            '',
+            '.c {',
+            '  -webkit-mask: url(new.svg);',
+            '  mask: url(new.svg);',
+            '  .d { -webkit-clip-path: circle(50%); clip-path: circle(50%); }',
+            '  content: "user-select: x;";',
+            '}',
+            ''
+        ].join('\n'));
+    });
+
+    test('prefixAll is idempotent', () => {
+        const once = P.applyEdits(file, P.prefixAll(file, { syntax: 'scss' }));
+        assert.deepEqual(P.prefixAll(once, { syntax: 'scss' }), []);
+    });
+
+    test('prefixRange only touches declarations inside the selection', () => {
+        const start = file.indexOf('.b {');
+        const end = file.indexOf('}', start) + 1;
+        const out = P.applyEdits(file, P.prefixRange(file, start, end, { syntax: 'scss' }));
+        assert.equal(out, file.replace('.b { appearance: none; }', '.b { -webkit-appearance: none; -moz-appearance: none; appearance: none; }'));
+    });
+
+    test('a selection that ends mid-declaration still counts that declaration', () => {
+        const src = '.a {\n  user-select: none;\n}';
+        const out = P.applyEdits(src, P.prefixRange(src, 0, src.indexOf('user-select') + 3));
+        assert.equal(out, '.a {\n  -webkit-user-select: none;\n  user-select: none;\n}');
+    });
+
+    test('a selection covering only a nested block leaves the parent alone', () => {
+        const src = '.a {\n  user-select: none;\n  .b {\n    user-select: text;\n  }\n}';
+        const start = src.indexOf('.b {');
+        const out = P.applyEdits(src, P.prefixRange(src, start, src.indexOf('}', start) + 1, { syntax: 'scss' }));
+        assert.equal(out, '.a {\n  user-select: none;\n  .b {\n    -webkit-user-select: text;\n    user-select: text;\n  }\n}');
+    });
+
+    test('repeated standard property: only the last one is prefixed', () => {
+        const src = '.a {\n  mask: a;\n  mask: b;\n}';
+        assert.equal(P.applyEdits(src, P.prefixAll(src)), '.a {\n  mask: a;\n  -webkit-mask: b;\n  mask: b;\n}');
+    });
+
+    test('empty file and top-level text produce no edits', () => {
+        assert.deepEqual(P.prefixAll(''), []);
+        assert.deepEqual(P.prefixAll('user-select: none;'), []);
+        assert.deepEqual(P.prefixAt('user-select: none;', 15), []);
+    });
+
+    test('every edit is tagged with the declaration it serves', () => {
+        const edits = P.prefixAll('.a { user-select: none; }');
+        assert.deepEqual(edits.map(e => e.decl), [{ name: 'user-select', value: 'none' }]);
+    });
+});
