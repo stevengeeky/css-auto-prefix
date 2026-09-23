@@ -109,6 +109,19 @@
                         ]
                     },
                     "description": "The list of attributes to add support for, and what prefixes each one should receive."
+                },
+                "css-auto-prefix.prefixPosition": {
+                    "type": "string",
+                    "enum": [
+                        "before",
+                        "after"
+                    ],
+                    "default": "before",
+                    "enumDescriptions": [
+                        "Prefixed lines go above the standard property, so the W3C property comes last (recommended).",
+                        "Prefixed lines go below the standard property (the 0.2.0 layout)."
+                    ],
+                    "description": "Where to put the vendor-prefixed copies relative to the standard property."
                 }
             }
         }
