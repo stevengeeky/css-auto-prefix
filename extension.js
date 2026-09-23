@@ -1,6 +1,5 @@
 /**
  * @name CSS Auto Prefixer
- * @author Steven O'Riley
  * @desc Auto prefixes certain CSS attributes as you type
  *
  * This file is only the VS Code adapter. Everything that decides *what* to
