@@ -65,3 +65,73 @@ describe('#7 a colon inside a value must not split the previous property', () =>
         assert.deepEqual(decls.map(d => [d.name, d.value]), [['example', "':'"], ['animation', 'a']]);
     });
 });
+
+describe('#2 SCSS: typing above a nested & selector', () => {
+    const SCSS = Object.assign({ syntax: 'scss' }, LEGACY);
+
+    test('prefixes stay in the outer block, the & block is untouched', () => {
+        const src = [
+            '.card {',
+            '  transform: scale(1)|;',
+            '  &:hover {',
+            '    color: red;',
+            '  }',
+            '}'
+        ].join('\n');
+        const { out } = atCursor(src, SCSS);
+        assert.equal(out, [
+            '.card {',
+            '  -webkit-transform: scale(1);',
+            '  -moz-transform: scale(1);',
+            '  -ms-transform: scale(1);',
+            '  -o-transform: scale(1);',
+            '  transform: scale(1);',
+            '  &:hover {',
+            '    color: red;',
+            '  }',
+            '}'
+        ].join('\n'));
+    });
+
+    test('a half-typed line (no semicolon yet) directly above `&:hover {`', () => {
+        const src = '.card {\n  transition: all .2s|\n  &:hover {\n    transform: none;\n  }\n}';
+        const { out } = atCursor(src, SCSS);
+        assert.equal(out, '.card {\n  -webkit-transition: all .2s;\n  -moz-transition: all .2s;\n  -ms-transition: all .2s;\n  -o-transition: all .2s;\n  transition: all .2s\n  &:hover {\n    transform: none;\n  }\n}');
+    });
+
+    test('typing inside the nested & block only touches that block', () => {
+        const src = '.card {\n  color: red;\n  &:hover {\n    user-select: none|;\n  }\n  & + & { margin: 0; }\n}';
+        const { out } = atCursor(src, { syntax: 'scss' });
+        assert.equal(out, '.card {\n  color: red;\n  &:hover {\n    -webkit-user-select: none;\n    user-select: none;\n  }\n  & + & { margin: 0; }\n}');
+    });
+
+    test('a `&:hover` selector is never mistaken for a `&` property', () => {
+        const src = '.a {\n  &:hover|{\n    color: red;\n  }\n}';
+        const { edits } = atCursor(src, { syntax: 'scss', prefixes: { '&': ['webkit'] } });
+        assert.deepEqual(edits, []);
+    });
+
+    test('nested block whose brace sits on the next line', () => {
+        const src = '.a {\n  &:hover\n  {\n    color: red;\n  }\n  user-select: none|;\n}';
+        const { out } = atCursor(src, { syntax: 'scss' });
+        assert.equal(out, '.a {\n  &:hover\n  {\n    color: red;\n  }\n  -webkit-user-select: none;\n  user-select: none;\n}');
+    });
+
+    test('// line comments with braces are ignored in scss', () => {
+        const src = '.a {\n  // } { user-select: x;\n  user-select: none|;\n  .b { color: red; } // {\n}';
+        const { out } = atCursor(src, { syntax: 'scss' });
+        assert.equal(out, '.a {\n  // } { user-select: x;\n  -webkit-user-select: none;\n  user-select: none;\n  .b { color: red; } // {\n}');
+    });
+
+    test('@include, @media, maps and $variables around the property', () => {
+        const src = '.a {\n  @include foo(1, (a: b));\n  $m: (k: v, k2: v2);\n  @media (max-width: 1px) { color: red; }\n  user-select: none|;\n  @if $x == 1 { color: blue; }\n}';
+        const { out } = atCursor(src, { syntax: 'scss' });
+        assert.equal(out, '.a {\n  @include foo(1, (a: b));\n  $m: (k: v, k2: v2);\n  @media (max-width: 1px) { color: red; }\n  -webkit-user-select: none;\n  user-select: none;\n  @if $x == 1 { color: blue; }\n}');
+    });
+
+    test('an unterminated block (still being typed) still resolves to the right owner', () => {
+        const src = '.a {\n  .b {\n    user-select: none|\n';
+        const { out } = atCursor(src, { syntax: 'scss' });
+        assert.equal(out, '.a {\n  .b {\n    -webkit-user-select: none;\n    user-select: none\n');
+    });
+});
