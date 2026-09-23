@@ -11,14 +11,16 @@
         "Other"
     ],
     "activationEvents": [
-        "*"
+        "onLanguage:css",
+        "onLanguage:scss",
+        "onLanguage:less"
     ],
     "repository": {
         "type": "github",
         "url": "https://github.com/stevengeeky/css-auto-prefix"
     },
     "icon": "thumbnail.png",
-    "main": "./extension",
+    "main": "./extension.js",
     "contributes": {
         "configuration": {
             "type": "object",
@@ -124,7 +126,19 @@
                     "description": "Where to put the vendor-prefixed copies relative to the standard property."
                 }
             }
-        }
+        },
+        "commands": [
+            {
+                "command": "css-auto-prefix.prefixFile",
+                "title": "Prefix File",
+                "category": "CSS Auto Prefix"
+            },
+            {
+                "command": "css-auto-prefix.prefixSelection",
+                "title": "Prefix Selection",
+                "category": "CSS Auto Prefix"
+            }
+        ]
     },
     "scripts": {
         "test": "node --test test/*.test.js"
